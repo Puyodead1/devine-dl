@@ -63,7 +63,6 @@ urllib3 = "^2.2.1"
 chardet = "^5.2.0"
 curl-cffi = "^0.7.0b4"
 pyplayready = "^0.6.0"
-httpx = "^0.28.1"
 
 [tool.poetry.group.dev.dependencies]
 pre-commit = "^3.7.0"
