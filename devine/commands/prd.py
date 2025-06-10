@@ -1,19 +1,20 @@
 import logging
 from pathlib import Path
+from secrets import token_bytes
 from typing import Optional
 
 import click
 import requests
-from Crypto.Random import get_random_bytes
-
-from devine.core.config import config
-from devine.core.constants import context_settings
 from pyplayready.cdm import Cdm
 from pyplayready.crypto.ecc_key import ECCKey
 from pyplayready.device import Device
 from pyplayready.exceptions import InvalidCertificateChain, OutdatedDevice
 from pyplayready.system.bcert import Certificate, CertificateChain
 from pyplayready.system.pssh import PSSH
+
+from devine.core.config import config
+from devine.core.constants import context_settings
+
 
 
 @click.group(
@@ -103,9 +104,9 @@ def new(
         raise InvalidCertificateChain("Group key does not match this certificate")
 
     new_certificate = Certificate.new_leaf_cert(
-        cert_id=get_random_bytes(16),
+        cert_id=token_bytes(16),
         security_level=certificate_chain.get_security_level(),
-        client_id=get_random_bytes(16),
+        client_id=token_bytes(16),
         signing_key=signing_key_obj,
         encryption_key=encryption_key_obj,
         group_key=group_key_obj,
@@ -196,9 +197,9 @@ def reprovision_device(
     device.signing_key = signing_key_obj
 
     new_certificate = Certificate.new_leaf_cert(
-        cert_id=get_random_bytes(16),
+        cert_id=token_bytes(16),
         security_level=device.group_certificate.get_security_level(),
-        client_id=get_random_bytes(16),
+        client_id=token_bytes(16),
         signing_key=signing_key_obj,
         encryption_key=encryption_key_obj,
         group_key=device.group_key,
