@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Optional, Union
 
-import httpx
 import m3u8
 from pyplayready.cdm import Cdm as PlayReadyCdm
 from pyplayready.system.pssh import PSSH as PR_PSSH
@@ -21,7 +20,7 @@ def parse(
     master: m3u8.M3U8,
     language: str,
     *,
-    session: Optional[Union[Session, httpx.Client]] = None,
+    session: Optional[Union[Session]] = None,
 ) -> Tracks:
     """Parse a variant playlist to ``Tracks`` with DRM information."""
     tracks = HLS(master, session=session).to_tracks(language)

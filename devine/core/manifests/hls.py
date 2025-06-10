@@ -13,7 +13,6 @@ from typing import Any, Callable, Optional, Union
 from urllib.parse import urljoin
 from zlib import crc32
 
-import httpx
 import m3u8
 import requests
 from langcodes import Language, tag_is_valid
@@ -34,7 +33,7 @@ from devine.core.utilities import get_extension, is_close_match, try_ensure_utf8
 
 
 class HLS:
-    def __init__(self, manifest: M3U8, session: Optional[Union[Session, httpx.Client]] = None):
+    def __init__(self, manifest: M3U8, session: Optional[Session] = None):
         if not manifest:
             raise ValueError("HLS manifest must be provided.")
         if not isinstance(manifest, M3U8):
@@ -46,7 +45,7 @@ class HLS:
         self.session = session or Session()
 
     @classmethod
-    def from_url(cls, url: str, session: Optional[Union[Session, httpx.Client]] = None, **args: Any) -> HLS:
+    def from_url(cls, url: str, session: Optional[Session] = None, **args: Any) -> HLS:
         if not url:
             raise requests.URLRequired("HLS manifest URL must be provided.")
         if not isinstance(url, str):
@@ -54,24 +53,15 @@ class HLS:
 
         if not session:
             session = Session()
-        elif not isinstance(session, (Session, httpx.Client)):
-            raise TypeError(f"Expected session to be a {Session} or {httpx.Client}, not {session!r}")
+        elif not isinstance(session, Session):
+            raise TypeError(f"Expected session to be a {Session}, not {session!r}")
 
         res = session.get(url, **args)
 
-        # Handle both requests and httpx response objects
-        if isinstance(res, requests.Response):
-            if not res.ok:
-                raise requests.ConnectionError("Failed to request the M3U(8) document.", response=res)
-            content = res.text
-        elif isinstance(res, httpx.Response):
-            if res.status_code >= 400:
-                raise requests.ConnectionError("Failed to request the M3U(8) document.", response=res)
-            content = res.text
-        else:
-            raise TypeError(f"Expected response to be a requests.Response or httpx.Response, not {type(res)}")
+        if not res.ok:
+            raise requests.ConnectionError("Failed to request the M3U(8) document.", response=res)
 
-        master = m3u8.loads(content, uri=url)
+        master = m3u8.loads(res.text, uri=url)
 
         return cls(master, session)
 
@@ -228,7 +218,7 @@ class HLS:
         save_path: Path,
         save_dir: Path,
         progress: partial,
-        session: Optional[Union[Session, httpx.Client]] = None,
+        session: Optional[Session] = None,
         proxy: Optional[str] = None,
         max_workers: Optional[int] = None,
         license_widevine: Optional[Callable] = None,
@@ -237,15 +227,13 @@ class HLS:
     ) -> None:
         if not session:
             session = Session()
-        elif not isinstance(session, (Session, httpx.Client)):
-            raise TypeError(f"Expected session to be a {Session} or {httpx.Client}, not {session!r}")
+        elif not isinstance(session, Session):
+            raise TypeError(f"Expected session to be a {Session}, not {session!r}")
 
         if proxy:
             # Handle proxies differently based on session type
             if isinstance(session, Session):
                 session.proxies.update({"all": proxy})
-            elif isinstance(session, httpx.Client):
-                session.proxies = {"http://": proxy, "https://": proxy}
 
         log = logging.getLogger("HLS")
 
@@ -256,13 +244,8 @@ class HLS:
                 log.error(f"Failed to request the invariant M3U8 playlist: {response.status_code}")
                 sys.exit(1)
             playlist_text = response.text
-        elif isinstance(response, httpx.Response):
-            if response.status_code >= 400:
-                log.error(f"Failed to request the invariant M3U8 playlist: {response.status_code}")
-                sys.exit(1)
-            playlist_text = response.text
         else:
-            raise TypeError(f"Expected response to be a requests.Response or httpx.Response, not {type(response)}")
+            raise TypeError(f"Expected response to be a requests.Response, not {type(response)}")
 
         master = m3u8.loads(playlist_text, uri=track.url)
 
@@ -524,13 +507,9 @@ class HLS:
                         if isinstance(res, requests.Response):
                             res.raise_for_status()
                             init_content = res.content
-                        elif isinstance(res, httpx.Response):
-                            if res.status_code >= 400:
-                                raise requests.HTTPError(f"HTTP Error: {res.status_code}", response=res)
-                            init_content = res.content
                         else:
                             raise TypeError(
-                                f"Expected response to be requests.Response or httpx.Response, not {type(res)}"
+                                f"Expected response to be requests.Response, not {type(res)}"
                             )
 
                         map_data = (segment.init_section, init_content)
