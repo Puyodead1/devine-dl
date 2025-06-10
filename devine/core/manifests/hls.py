@@ -379,7 +379,7 @@ class HLS:
                             if delete:
                                 file.unlink()
 
-                def decrypt(include_this_segment: bool) -> Path:
+                def decrypt(include_this_segment: bool, *, _merge=merge) -> Path:
                     """
                     Decrypt all segments that uses the currently set DRM.
 
@@ -428,7 +428,7 @@ class HLS:
 
                     if isinstance(drm, Widevine):
                         # with widevine we can merge all segments and decrypt once
-                        merge(to=merged_path, via=files, delete=True, include_map_data=True)
+                        _merge(to=merged_path, via=files, delete=True, include_map_data=True)
                         drm.decrypt(merged_path)
                         merged_path.rename(decrypted_path)
                     else:
@@ -436,13 +436,13 @@ class HLS:
                         # for aes this is because each segment likely has 16-byte padding
                         for file in files:
                             drm.decrypt(file)
-                        merge(to=merged_path, via=files, delete=True, include_map_data=True)
+                        _merge(to=merged_path, via=files, delete=True, include_map_data=True)
 
                     events.emit(events.Types.TRACK_DECRYPTED, track=track, drm=drm, segment=decrypted_path)
 
                     return decrypted_path
 
-                def merge_discontinuity(include_this_segment: bool, include_map_data: bool = True):
+                def merge_discontinuity(include_this_segment: bool, include_map_data: bool = True, *, _merge=merge):
                     """
                     Merge all segments of the discontinuity.
 
@@ -467,7 +467,7 @@ class HLS:
                     if files:
                         to_dir = segment_save_dir.parent
                         to_path = to_dir / f"{str(discon_i).zfill(name_len)}{files[-1].suffix}"
-                        merge(to=to_path, via=files, delete=True, include_map_data=include_map_data)
+                        _merge(to=to_path, via=files, delete=True, include_map_data=include_map_data)
 
                 if segment not in unwanted_segments:
                     if isinstance(track, Subtitle):
