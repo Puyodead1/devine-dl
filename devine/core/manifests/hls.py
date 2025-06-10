@@ -621,7 +621,7 @@ class HLS:
         return save_path.stat().st_size
 
     @staticmethod
-    def parse_session_data_keys(manifest: M3U8, session: Optional[Union[Session, httpx.Client]] = None) -> list[m3u8.model.Key]:
+    def parse_session_data_keys(manifest: M3U8, session: Optional[Union[Session]] = None) -> list[m3u8.model.Key]:
         """Parse `com.apple.hls.keys` session data and return Key objects."""
         keys: list[m3u8.model.Key] = []
 
@@ -715,7 +715,7 @@ class HLS:
 
     @staticmethod
     def get_drm(
-        key: Union[m3u8.model.SessionKey, m3u8.model.Key], session: Optional[Union[Session, httpx.Client]] = None
+        key: Union[m3u8.model.SessionKey, m3u8.model.Key], session: Optional[Union[Session]] = None
     ) -> DRM_T:
         """
         Convert HLS EXT-X-KEY data to an initialized DRM object.
@@ -727,8 +727,8 @@ class HLS:
 
         Raises a NotImplementedError if the key system is not supported.
         """
-        if not isinstance(session, (Session, httpx.Client, type(None))):
-            raise TypeError(f"Expected session to be a {Session} or {httpx.Client}, not {type(session)}")
+        if not isinstance(session, (Session, type(None))):
+            raise TypeError(f"Expected session to be a {Session}, not {type(session)}")
         if not session:
             session = Session()
 
