@@ -397,9 +397,16 @@ class HLS:
                     Returns the decrypted path.
                     """
                     drm = encryption_data[1]
-                    first_segment_i = next(
-                        int(file.stem) for file in sorted(segment_save_dir.iterdir()) if file.stem.isdigit()
-                    )
+                    try:
+                        first_segment_i = next(
+                            int(file.stem)
+                            for file in sorted(segment_save_dir.iterdir())
+                            if file.stem.isdigit()
+                        )
+                    except StopIteration as exc:
+                        raise ValueError(
+                            "Could not determine the first segment index for decryption"
+                        ) from exc
                     last_segment_i = max(0, i - int(not include_this_segment))
                     range_len = (last_segment_i - first_segment_i) + 1
 
