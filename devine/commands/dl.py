@@ -29,7 +29,6 @@ from pyplayready.cdm import Cdm as PlayReadyCdm
 from pyplayready.device import Device as PlayReadyDevice
 from pywidevine.cdm import Cdm as WidevineCdm
 from pywidevine.device import Device
-from pywidevine.remotecdm import RemoteCdm
 from rich.console import Group
 from rich.live import Live
 from rich.padding import Padding
