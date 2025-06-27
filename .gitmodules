@@ -1,0 +1,3 @@
+[submodule "devine/services"]
+	path = devine/services
+	url = https://github.com/Puyodead1/devine-services
