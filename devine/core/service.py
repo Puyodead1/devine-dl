@@ -43,7 +43,7 @@ class Service(metaclass=ABCMeta):
 
         self.log = logging.getLogger(self.__class__.__name__)
 
-        self.session = self.get_session()
+        self.session = Service.get_session()
         self.cache = Cacher(self.__class__.__name__)
 
         if not ctx.parent or not ctx.parent.params.get("no_proxy"):
