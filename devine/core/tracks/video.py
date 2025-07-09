@@ -34,14 +34,24 @@ class Video(Track):
         def from_mime(mime: str) -> Video.Codec:
             mime = mime.lower().strip().split(".")[0]
             if mime in (
-                "avc1", "avc2", "avc3",
-                "dva1", "dvav",  # Dolby Vision
+                "avc1",
+                "avc2",
+                "avc3",
+                "dva1",
+                "dvav",  # Dolby Vision
             ):
                 return Video.Codec.AVC
             if mime in (
-                "hev1", "hev2", "hev3", "hvc1", "hvc2", "hvc3",
-                "dvh1", "dvhe",  # Dolby Vision
-                "lhv1", "lhe1",  # Layered
+                "hev1",
+                "hev2",
+                "hev3",
+                "hvc1",
+                "hvc2",
+                "hvc3",
+                "dvh1",
+                "dvhe",  # Dolby Vision
+                "lhv1",
+                "lhe1",  # Layered
             ):
                 return Video.Codec.HEVC
             if mime == "vc-1":
@@ -63,7 +73,9 @@ class Video(Track):
                     return Video.Codec.from_mime(mime)
                 except ValueError:
                     pass
-            raise ValueError(f"No MIME types matched any supported Video Codecs in '{codecs}'")
+            raise ValueError(
+                f"No MIME types matched any supported Video Codecs in '{codecs}'"
+            )
 
         @staticmethod
         def from_netflix_profile(profile: str) -> Video.Codec:
@@ -76,14 +88,16 @@ class Video(Track):
                 return Video.Codec.VP9
             if profile.startswith("av1"):
                 return Video.Codec.AV1
-            raise ValueError(f"The Content Profile '{profile}' is not a supported Video Codec")
+            raise ValueError(
+                f"The Content Profile '{profile}' is not a supported Video Codec"
+            )
 
     class Range(str, Enum):
-        SDR = "SDR"        # No Dynamic Range
-        HLG = "HLG"        # https://en.wikipedia.org/wiki/Hybrid_log%E2%80%93gamma
-        HDR10 = "HDR10"    # https://en.wikipedia.org/wiki/HDR10
+        SDR = "SDR"  # No Dynamic Range
+        HLG = "HLG"  # https://en.wikipedia.org/wiki/Hybrid_log%E2%80%93gamma
+        HDR10 = "HDR10"  # https://en.wikipedia.org/wiki/HDR10
         HDR10P = "HDR10+"  # https://en.wikipedia.org/wiki/HDR10%2B
-        DV = "DV"          # https://en.wikipedia.org/wiki/Dolby_Vision
+        DV = "DV"  # https://en.wikipedia.org/wiki/Dolby_Vision
 
         @staticmethod
         def from_cicp(primaries: int, transfer: int, matrix: int) -> Video.Range:
@@ -93,6 +107,7 @@ class Video(Track):
             Sources:
             https://www.itu.int/rec/T-REC-H.Sup19-202104-I
             """
+
             class Primaries(Enum):
                 Unspecified = 0
                 BT_709 = 1
@@ -124,6 +139,9 @@ class Video(Track):
                 # The codebase is currently agnostic to either, so a manual conversion to 6 is done.
                 transfer = 6
 
+            if transfer == 2:
+                transfer = 1
+
             primaries = Primaries(primaries)
             transfer = Transfer(transfer)
             matrix = Matrix(matrix)
@@ -143,7 +161,7 @@ class Video(Track):
 
         @staticmethod
         def from_m3u_range_tag(tag: str) -> Optional[Video.Range]:
-            tag = (tag or "").upper().replace('"', '').strip()
+            tag = (tag or "").upper().replace('"', "").strip()
             if not tag:
                 return None
             if tag == "SDR":
@@ -153,7 +171,9 @@ class Video(Track):
             elif tag == "HLG":
                 return Video.Range.HLG
             # for some reason there's no Dolby Vision info tag
-            raise ValueError(f"The M3U Range Tag '{tag}' is not a supported Video Range")
+            raise ValueError(
+                f"The M3U Range Tag '{tag}' is not a supported Video Range"
+            )
 
     def __init__(
         self,
@@ -164,7 +184,7 @@ class Video(Track):
         width: Optional[int] = None,
         height: Optional[int] = None,
         fps: Optional[Union[str, int, float]] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         """
         Create a new Video track object.
@@ -194,13 +214,17 @@ class Video(Track):
         if not isinstance(range_, (Video.Range, type(None))):
             raise TypeError(f"Expected range_ to be a {Video.Range}, not {range_!r}")
         if not isinstance(bitrate, (str, int, float, type(None))):
-            raise TypeError(f"Expected bitrate to be a {str}, {int}, or {float}, not {bitrate!r}")
+            raise TypeError(
+                f"Expected bitrate to be a {str}, {int}, or {float}, not {bitrate!r}"
+            )
         if not isinstance(width, (int, str, type(None))):
             raise TypeError(f"Expected width to be a {int}, not {width!r}")
         if not isinstance(height, (int, str, type(None))):
             raise TypeError(f"Expected height to be a {int}, not {height!r}")
         if not isinstance(fps, (str, int, float, type(None))):
-            raise TypeError(f"Expected fps to be a {str}, {int}, or {float}, not {fps!r}")
+            raise TypeError(
+                f"Expected fps to be a {str}, {int}, or {float}, not {fps!r}"
+            )
 
         self.codec = codec
         self.range = range_ or Video.Range.SDR
@@ -224,34 +248,70 @@ class Video(Track):
             self.fps = (FPS.parse(str(fps)) or None) if fps else None
         except Exception as e:
             raise ValueError(
-                "Expected fps to be a number, float, or a string as numerator/denominator form, " +
-                str(e)
+                "Expected fps to be a number, float, or a string as numerator/denominator form, "
+                + str(e)
             )
 
     def __str__(self) -> str:
-        return " | ".join(filter(bool, [
-            "VID",
-            "[" + (", ".join(filter(bool, [
-                self.codec.value if self.codec else None,
-                self.range.name
-            ]))) + "]",
-            str(self.language),
-            ", ".join(filter(bool, [
-                " @ ".join(filter(bool, [
-                    f"{self.width}x{self.height}" if self.width and self.height else None,
-                    f"{self.bitrate // 1000} kb/s" if self.bitrate else None
-                ])),
-                f"{self.fps:.3f} FPS" if self.fps else None
-            ])),
-            self.edition
-        ]))
+        return " | ".join(
+            filter(
+                bool,
+                [
+                    "VID",
+                    "["
+                    + (
+                        ", ".join(
+                            filter(
+                                bool,
+                                [
+                                    self.codec.value if self.codec else None,
+                                    self.range.name,
+                                ],
+                            )
+                        )
+                    )
+                    + "]",
+                    str(self.language),
+                    ", ".join(
+                        filter(
+                            bool,
+                            [
+                                " @ ".join(
+                                    filter(
+                                        bool,
+                                        [
+                                            (
+                                                f"{self.width}x{self.height}"
+                                                if self.width and self.height
+                                                else None
+                                            ),
+                                            (
+                                                f"{self.bitrate // 1000} kb/s"
+                                                if self.bitrate
+                                                else None
+                                            ),
+                                        ],
+                                    )
+                                ),
+                                f"{self.fps:.3f} FPS" if self.fps else None,
+                            ],
+                        )
+                    ),
+                    self.edition,
+                ],
+            )
+        )
 
     def change_color_range(self, range_: int) -> None:
         """Change the Video's Color Range to Limited (0) or Full (1)."""
         if not self.path or not self.path.exists():
-            raise ValueError("Cannot change the color range flag on a Video that has not been downloaded.")
+            raise ValueError(
+                "Cannot change the color range flag on a Video that has not been downloaded."
+            )
         if not self.codec:
-            raise ValueError("Cannot change the color range flag on a Video that has no codec specified.")
+            raise ValueError(
+                "Cannot change the color range flag on a Video that has no codec specified."
+            )
         if self.codec not in (Video.Codec.AVC, Video.Codec.HEVC):
             raise NotImplementedError(
                 "Cannot change the color range flag on this Video as "
@@ -259,30 +319,46 @@ class Video(Track):
             )
 
         if not binaries.FFMPEG:
-            raise EnvironmentError("FFmpeg executable \"ffmpeg\" was not found but is required for this call.")
+            raise EnvironmentError(
+                'FFmpeg executable "ffmpeg" was not found but is required for this call.'
+            )
 
         filter_key = {
             Video.Codec.AVC: "h264_metadata",
-            Video.Codec.HEVC: "hevc_metadata"
+            Video.Codec.HEVC: "hevc_metadata",
         }[self.codec]
 
         original_path = self.path
-        output_path = original_path.with_stem(f"{original_path.stem}_{['limited', 'full'][range_]}_range")
+        output_path = original_path.with_stem(
+            f"{original_path.stem}_{['limited', 'full'][range_]}_range"
+        )
 
-        subprocess.run([
-            binaries.FFMPEG, "-hide_banner",
-            "-loglevel", "panic",
-            "-i", original_path,
-            "-codec", "copy",
-            "-bsf:v", f"{filter_key}=video_full_range_flag={range_}",
-            str(output_path)
-        ], check=True)
+        subprocess.run(
+            [
+                binaries.FFMPEG,
+                "-hide_banner",
+                "-loglevel",
+                "panic",
+                "-i",
+                original_path,
+                "-codec",
+                "copy",
+                "-bsf:v",
+                f"{filter_key}=video_full_range_flag={range_}",
+                str(output_path),
+            ],
+            check=True,
+        )
 
         self.path = output_path
         original_path.unlink()
 
     def ccextractor(
-        self, track_id: Any, out_path: Union[Path, str], language: Language, original: bool = False
+        self,
+        track_id: Any,
+        out_path: Union[Path, str],
+        language: Language,
+        original: bool = False,
     ) -> Optional[Subtitle]:
         """Return a TextTrack object representing CC track extracted by CCExtractor."""
         if not self.path:
@@ -297,14 +373,21 @@ class Video(Track):
         out_path = Path(out_path)
 
         try:
-            subprocess.run([
-                binaries.CCExtractor,
-                "-trim",
-                "-nobom",
-                "-noru", "-ru1",
-                "-o", out_path,
-                self.path
-            ], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                [
+                    binaries.CCExtractor,
+                    "-trim",
+                    "-nobom",
+                    "-noru",
+                    "-ru1",
+                    "-o",
+                    out_path,
+                    self.path,
+                ],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
         except subprocess.CalledProcessError as e:
             out_path.unlink(missing_ok=True)
             if not e.returncode == 10:  # No captions found
@@ -317,7 +400,7 @@ class Video(Track):
                 codec=Subtitle.Codec.SubRip,
                 language=language,
                 is_original_lang=original,
-                cc=True
+                cc=True,
             )
             cc_track.path = out_path
             return cc_track
@@ -355,12 +438,10 @@ class Video(Track):
             cc_lang = self.language
             cc_track = self.ccextractor(
                 track_id=track_id,
-                out_path=config.directories.temp / config.filenames.subtitle.format(
-                    id=track_id,
-                    language=cc_lang
-                ),
+                out_path=config.directories.temp
+                / config.filenames.subtitle.format(id=track_id, language=cc_lang),
                 language=cc_lang,
-                original=False
+                original=False,
             )
             if not cc_track:
                 return []
@@ -380,7 +461,9 @@ class Video(Track):
             raise ValueError("Cannot clean a Track that has not been downloaded.")
 
         if not binaries.FFMPEG:
-            raise EnvironmentError("FFmpeg executable \"ffmpeg\" was not found but is required for this call.")
+            raise EnvironmentError(
+                'FFmpeg executable "ffmpeg" was not found but is required for this call.'
+            )
 
         log = logging.getLogger("x264-clean")
         log.info("Removing EIA-CC from Video Track with FFMPEG")
@@ -388,27 +471,42 @@ class Video(Track):
         with open(self.path, "rb") as f:
             file = f.read(60000)
 
-        x264 = re.search(br"(.{16})(x264)", file)
+        x264 = re.search(rb"(.{16})(x264)", file)
         if not x264:
             log.info(" - No x264 encode settings were found, unsupported...")
             return False
 
         uuid = x264.group(1).hex()
         i = file.index(b"x264")
-        encoding_settings = file[i: i + file[i:].index(b"\x00")].replace(b":", br"\\:").replace(b",", br"\,").decode()
+        encoding_settings = (
+            file[i : i + file[i:].index(b"\x00")]
+            .replace(b":", rb"\\:")
+            .replace(b",", rb"\,")
+            .decode()
+        )
 
         original_path = self.path
         cleaned_path = original_path.with_suffix(f".cleaned{original_path.suffix}")
-        subprocess.run([
-            binaries.FFMPEG, "-hide_banner",
-            "-loglevel", "panic",
-            "-i", original_path,
-            "-map_metadata", "-1",
-            "-fflags", "bitexact",
-            "-bsf:v", f"filter_units=remove_types=6,h264_metadata=sei_user_data={uuid}+{encoding_settings}",
-            "-codec", "copy",
-            str(cleaned_path)
-        ], check=True)
+        subprocess.run(
+            [
+                binaries.FFMPEG,
+                "-hide_banner",
+                "-loglevel",
+                "panic",
+                "-i",
+                original_path,
+                "-map_metadata",
+                "-1",
+                "-fflags",
+                "bitexact",
+                "-bsf:v",
+                f"filter_units=remove_types=6,h264_metadata=sei_user_data={uuid}+{encoding_settings}",
+                "-codec",
+                "copy",
+                str(cleaned_path),
+            ],
+            check=True,
+        )
 
         log.info(" + Removed")
 

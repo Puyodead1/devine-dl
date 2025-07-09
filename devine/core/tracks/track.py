@@ -481,8 +481,8 @@ class Track:
             raise TypeError(f"Expected url to be a {str}, not {type(url)}")
         if not isinstance(byte_range, (str, type(None))):
             raise TypeError(f"Expected byte_range to be a {str}, not {type(byte_range)}")
-        if not isinstance(session, (Session, type(None))):
-            raise TypeError(f"Expected session to be a {Session}, not {type(session)}")
+        # if not isinstance(session, (Session, type(None))):
+        #     raise TypeError(f"Expected session to be a {Session}, not {type(session)}")
 
         if not url:
             if self.descriptor != self.Descriptor.URL:

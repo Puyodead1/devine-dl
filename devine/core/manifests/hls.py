@@ -53,8 +53,8 @@ class HLS:
 
         if not session:
             session = Session()
-        elif not isinstance(session, Session):
-            raise TypeError(f"Expected session to be a {Session}, not {session!r}")
+        # elif not isinstance(session, Session):
+        #     raise TypeError(f"Expected session to be a {Session}, not {session!r}")
 
         res = session.get(url, **args)
 
@@ -227,8 +227,8 @@ class HLS:
     ) -> None:
         if not session:
             session = Session()
-        elif not isinstance(session, Session):
-            raise TypeError(f"Expected session to be a {Session}, not {session!r}")
+        # elif not isinstance(session, Session):
+        #     raise TypeError(f"Expected session to be a {Session}, not {session!r}")
 
         if proxy:
             # Handle proxies differently based on session type
@@ -734,8 +734,8 @@ class HLS:
 
         Raises a NotImplementedError if the key system is not supported.
         """
-        if not isinstance(session, (Session, type(None))):
-            raise TypeError(f"Expected session to be a {Session}, not {type(session)}")
+        # if not isinstance(session, (Session, type(None))):
+        #     raise TypeError(f"Expected session to be a {Session}, not {type(session)}")
         if not session:
             session = Session()
 

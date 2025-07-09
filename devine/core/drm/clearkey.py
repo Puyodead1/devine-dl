@@ -70,8 +70,8 @@ class ClearKey:
         """
         if not isinstance(m3u_key, Key):
             raise ValueError(f"Provided M3U Key is in an unexpected type {m3u_key!r}")
-        if not isinstance(session, (Session, type(None))):
-            raise TypeError(f"Expected session to be a {Session}, not a {type(session)}")
+        # if not isinstance(session, (Session, type(None))):
+        #     raise TypeError(f"Expected session to be a {Session}, not a {type(session)}")
 
         if not m3u_key.method.startswith("AES"):
             raise ValueError(f"Provided M3U Key is not an AES Clear Key, {m3u_key.method}")
