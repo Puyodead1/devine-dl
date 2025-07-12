@@ -13,6 +13,7 @@ from typing import Any, Callable, Optional, Union
 from urllib.parse import urljoin
 from zlib import crc32
 
+import httpx
 import m3u8
 import requests
 from langcodes import Language, tag_is_valid
@@ -241,6 +242,11 @@ class HLS:
         response = session.get(track.url)
         if isinstance(response, requests.Response):
             if not response.ok:
+                log.error(f"Failed to request the invariant M3U8 playlist: {response.status_code}")
+                sys.exit(1)
+            playlist_text = response.text
+        elif isinstance(response, httpx.Response):
+            if not response.is_success:
                 log.error(f"Failed to request the invariant M3U8 playlist: {response.status_code}")
                 sys.exit(1)
             playlist_text = response.text
