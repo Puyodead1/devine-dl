@@ -556,6 +556,9 @@ class Subtitle(Track):
                 stdout=subprocess.DEVNULL
             )
         else:
+            # skip exts that arent .srt
+            if not self.path.suffix.lower() in Subtitles.EXTENSIONS:
+                return
             sub = Subtitles(self.path)
             sub.filter(
                 rm_fonts=True,

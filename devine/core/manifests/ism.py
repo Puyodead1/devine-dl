@@ -215,8 +215,8 @@ class ISM:
     ) -> None:
         if not session:
             session = Session()
-        # elif not isinstance(session, Session):
-        #     raise TypeError(f"Expected session to be a {Session}, not {session!r}")
+        elif not isinstance(session, Session):
+            raise TypeError(f"Expected session to be a {Session}, not {session!r}")
 
         if proxy:
             session.proxies.update({"all": proxy})

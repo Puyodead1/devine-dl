@@ -55,8 +55,8 @@ class DASH:
 
         if not session:
             session = Session()
-        # elif not isinstance(session, Session):
-        #     raise TypeError(f"Expected session to be a {Session}, not {session!r}")
+        elif not isinstance(session, Session):
+            raise TypeError(f"Expected session to be a {Session}, not {session!r}")
 
         res = session.get(url, **args)
         if str(res.url) != url:
@@ -247,8 +247,8 @@ class DASH:
     ):
         if not session:
             session = Session()
-        # elif not isinstance(session, Session):
-        #     raise TypeError(f"Expected session to be a {Session}, not {session!r}")
+        elif not isinstance(session, Session):
+            raise TypeError(f"Expected session to be a {Session}, not {session!r}")
 
         if proxy:
             session.proxies.update({

@@ -20,6 +20,9 @@ from devine.core.utilities import rotate_log_file
 
 LOGGING_PATH = None
 
+httpx_logger = logging.getLogger("httpx")
+httpx_logger.setLevel(logging.WARNING)
+
 
 @click.command(cls=Commands, invoke_without_command=True, context_settings=context_settings)
 @click.option("-v", "--version", is_flag=True, default=False, help="Print version information.")

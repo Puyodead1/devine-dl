@@ -262,7 +262,7 @@ def requests(
                 pool.submit(
                     download,
                     session=session,
-                    segmented=True,
+                    segmented=False,
                     **url
                 )
                 for url in urls
