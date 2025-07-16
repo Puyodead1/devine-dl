@@ -193,8 +193,10 @@ class Track:
 
         log = logging.getLogger("track")
 
-        #proxy = next(iter(session.proxies.values()), None)
-        proxy = None
+        if "proxies" in dir(session):
+            proxy = next(iter(session.proxies.values()), None)
+        else:
+            proxy = None
 
         track_type = self.__class__.__name__
         save_path = config.directories.temp / f"{track_type}_{self.id}.mp4"
