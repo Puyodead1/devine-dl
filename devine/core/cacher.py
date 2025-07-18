@@ -139,6 +139,8 @@ class Cacher:
         but rather something a bit more than that. This is because it did not resolve 3600
         seconds from the `now` variable but from right now as the function was called.
         """
+        original_timestamp = timestamp
+
         if isinstance(timestamp, datetime):
             return timestamp
         if isinstance(timestamp, str):
@@ -149,14 +151,17 @@ class Cacher:
                 return datetime.fromisoformat(timestamp)
             except ValueError:
                 timestamp = float(timestamp)
+
         try:
             if len(str(int(timestamp))) == 13:  # JS-style timestamp
                 timestamp /= 1000
-            timestamp = datetime.fromtimestamp(timestamp)
+
+            # Check if this looks like a Unix timestamp (after 2000)
+            if timestamp > 946684800:  # Jan 1, 2000
+                return datetime.fromtimestamp(timestamp)
+            else:
+                # Treat as seconds until expiration
+                return datetime.now() + timedelta(seconds=timestamp)
+
         except ValueError:
-            raise ValueError(f"Unrecognized Timestamp value {timestamp!r}")
-        if timestamp < datetime.now():
-            # timestamp is likely an amount of seconds til expiration
-            # or, it's an already expired timestamp which is unlikely
-            timestamp = timestamp + timedelta(seconds=datetime.now().timestamp())
-        return timestamp
+            raise ValueError(f"Unrecognized Timestamp value {original_timestamp!r}")
