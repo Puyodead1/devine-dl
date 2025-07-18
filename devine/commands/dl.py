@@ -554,6 +554,7 @@ class dl:
                 ))
                 return
             except Exception as e:  # noqa
+                raise e
                 error_messages = [
                     ":x: Download Failed...",
                 ]

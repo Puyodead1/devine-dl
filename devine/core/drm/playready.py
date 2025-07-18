@@ -51,7 +51,7 @@ class PlayReady:
                 except Exception:
                     continue
 
-        if kid:
+        if kid and not (pssh or pssh_b64):
             raise Exception("kid was passed to playready, check this shit")
             # if isinstance(kid, str):
             #     kid = UUID(hex=kid)
