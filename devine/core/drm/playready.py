@@ -52,14 +52,15 @@ class PlayReady:
                     continue
 
         if kid:
-            if isinstance(kid, str):
-                kid = UUID(hex=kid)
-            elif isinstance(kid, bytes):
-                kid = UUID(bytes=kid)
-            if not isinstance(kid, UUID):
-                raise ValueError(f"Expected kid to be a {UUID}, str, or bytes, not {kid!r}")
-            if kid not in kids:
-                kids.append(kid)
+            raise Exception("kid was passed to playready, check this shit")
+            # if isinstance(kid, str):
+            #     kid = UUID(hex=kid)
+            # elif isinstance(kid, bytes):
+            #     kid = UUID(bytes=kid)
+            # if not isinstance(kid, UUID):
+            #     raise ValueError(f"Expected kid to be a {UUID}, str, or bytes, not {kid!r}")
+            # if kid not in kids:
+            #     kids.append(kid)
 
         self._pssh = pssh
         self._kids = kids
