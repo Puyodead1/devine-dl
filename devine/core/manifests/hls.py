@@ -60,7 +60,9 @@ class HLS:
         res = session.get(url, **args)
 
         if not res.ok:
-            raise requests.ConnectionError("Failed to request the M3U(8) document.", response=res)
+            raise requests.ConnectionError(
+                "Failed to request the M3U(8) document.", response=res
+            )
 
         master = m3u8.loads(res.text, uri=url)
 
@@ -74,7 +76,9 @@ class HLS:
             raise TypeError(f"Expected text to be a {str}, not {text!r}")
 
         if not url:
-            raise requests.URLRequired("HLS manifest URL must be provided for relative path computations.")
+            raise requests.URLRequired(
+                "HLS manifest URL must be provided for relative path computations."
+            )
         if not isinstance(url, str):
             raise TypeError(f"Expected url to be a {str}, not {url!r}")
 
@@ -121,27 +125,45 @@ class HLS:
                     id_=hex(crc32(str(playlist).encode()))[2:],
                     url=urljoin(playlist.base_uri, playlist.uri),
                     codec=(
-                        primary_track_type.Codec.from_codecs(playlist.stream_info.codecs)
+                        primary_track_type.Codec.from_codecs(
+                            playlist.stream_info.codecs
+                        )
                         if playlist.stream_info.codecs
                         else None
                     ),
                     language=language,  # HLS manifests do not seem to have language info
                     is_original_lang=True,  # TODO: All we can do is assume Yes
-                    bitrate=playlist.stream_info.average_bandwidth or playlist.stream_info.bandwidth,
+                    bitrate=playlist.stream_info.average_bandwidth
+                    or playlist.stream_info.bandwidth,
                     descriptor=Video.Descriptor.HLS,
                     drm=session_drm,
                     data={"hls": {"playlist": playlist}},
                     # video track args
                     **(
                         dict(
-                            range_=Video.Range.DV
-                            if any(
-                                codec.split(".")[0] in ("dva1", "dvav", "dvhe", "dvh1")
-                                for codec in (playlist.stream_info.codecs or "").lower().split(",")
-                            )
-                            else Video.Range.from_m3u_range_tag(playlist.stream_info.video_range),
-                            width=playlist.stream_info.resolution[0] if playlist.stream_info.resolution else None,
-                            height=playlist.stream_info.resolution[1] if playlist.stream_info.resolution else None,
+                            range_=(
+                                Video.Range.DV
+                                if any(
+                                    codec.split(".")[0]
+                                    in ("dva1", "dvav", "dvhe", "dvh1")
+                                    for codec in (playlist.stream_info.codecs or "")
+                                    .lower()
+                                    .split(",")
+                                )
+                                else Video.Range.from_m3u_range_tag(
+                                    playlist.stream_info.video_range
+                                )
+                            ),
+                            width=(
+                                playlist.stream_info.resolution[0]
+                                if playlist.stream_info.resolution
+                                else None
+                            ),
+                            height=(
+                                playlist.stream_info.resolution[1]
+                                if playlist.stream_info.resolution
+                                else None
+                            ),
                             fps=playlist.stream_info.frame_rate,
                         )
                         if primary_track_type is Video
@@ -178,8 +200,12 @@ class HLS:
                 msg = "Language information could not be derived for a media."
                 if language is None:
                     msg += " No fallback language was provided when calling HLS.to_tracks()."
-                elif not tag_is_valid((str(language) or "").strip()) or str(language).startswith("und"):
-                    msg += f" The fallback language provided is also invalid: {language}"
+                elif not tag_is_valid((str(language) or "").strip()) or str(
+                    language
+                ).startswith("und"):
+                    msg += (
+                        f" The fallback language provided is also invalid: {language}"
+                    )
                 raise ValueError(msg)
 
             tracks.add(
@@ -188,7 +214,8 @@ class HLS:
                     url=urljoin(media.base_uri, media.uri),
                     codec=codec,
                     language=track_lang,  # HLS media may not have language info, fallback if needed
-                    is_original_lang=language and is_close_match(track_lang, [language]),
+                    is_original_lang=language
+                    and is_close_match(track_lang, [language]),
                     descriptor=Audio.Descriptor.HLS,
                     drm=session_drm if media.type == "AUDIO" else None,
                     data={"hls": {"media": media}},
@@ -198,15 +225,19 @@ class HLS:
                             bitrate=0,  # TODO: M3U doesn't seem to state bitrate?
                             channels=media.channels,
                             joc=joc,
-                            descriptive="public.accessibility.describes-video" in (media.characteristics or ""),
+                            descriptive="public.accessibility.describes-video"
+                            in (media.characteristics or ""),
                         )
                         if track_type is Audio
-                        else dict(
-                            forced=media.forced == "YES",
-                            sdh="public.accessibility.describes-music-and-sound" in (media.characteristics or ""),
+                        else (
+                            dict(
+                                forced=media.forced == "YES",
+                                sdh="public.accessibility.describes-music-and-sound"
+                                in (media.characteristics or ""),
+                            )
+                            if track_type is Subtitle
+                            else {}
                         )
-                        if track_type is Subtitle
-                        else {}
                     ),
                 )
             )
@@ -242,21 +273,29 @@ class HLS:
         response = session.get(track.url)
         if isinstance(response, requests.Response):
             if not response.ok:
-                log.error(f"Failed to request the invariant M3U8 playlist: {response.status_code}")
+                log.error(
+                    f"Failed to request the invariant M3U8 playlist: {response.status_code}"
+                )
                 sys.exit(1)
             playlist_text = response.text
         elif isinstance(response, httpx.Response):
             if not response.is_success:
-                log.error(f"Failed to request the invariant M3U8 playlist: {response.status_code}")
+                log.error(
+                    f"Failed to request the invariant M3U8 playlist: {response.status_code}"
+                )
                 sys.exit(1)
             playlist_text = response.text
         else:
-            raise TypeError(f"Expected response to be a requests.Response, not {type(response)}")
+            raise TypeError(
+                f"Expected response to be a requests.Response, not {type(response)}"
+            )
 
         master = m3u8.loads(playlist_text, uri=track.url)
 
         if not master.segments:
-            log.error("Track's HLS playlist has no segments, expecting an invariant M3U8 playlist.")
+            log.error(
+                "Track's HLS playlist has no segments, expecting an invariant M3U8 playlist."
+            )
             sys.exit(1)
 
         if track.drm:
@@ -283,39 +322,116 @@ class HLS:
             return
 
         unwanted_segments = [
-            segment for segment in master.segments if callable(track.OnSegmentFilter) and track.OnSegmentFilter(segment)
+            segment
+            for segment in master.segments
+            if callable(track.OnSegmentFilter) and track.OnSegmentFilter(segment)
         ]
 
         total_segments = len(master.segments) - len(unwanted_segments)
         progress(total=total_segments)
 
-        downloader = track.downloader
-        if downloader.__name__ == "aria2c" and any(x.byterange for x in master.segments if x not in unwanted_segments):
-            downloader = requests_downloader
-            log.warning("Falling back to the requests downloader as aria2(c) doesn't support the Range header")
+        # Check if we can optimize aria2c usage for byte range segments
+        segments_with_ranges = [
+            x for x in master.segments if x not in unwanted_segments and x.byterange
+        ]
+        can_optimize_aria2c = False
+        full_file_url = None
+
+        if track.downloader.__name__ == "aria2c" and segments_with_ranges:
+            # Check if ALL segments (not just those with ranges) come from the same URL
+            all_segment_urls = [
+                urljoin(x.base_uri, x.uri)
+                for x in master.segments
+                if x not in unwanted_segments
+            ]
+            unique_urls = set(all_segment_urls)
+
+            if len(unique_urls) == 1 and all(
+                x.byterange for x in master.segments if x not in unwanted_segments
+            ):
+                # All segments come from the same URL and all have byte ranges
+                # Since we'll merge them anyway, just download the complete file!
+                can_optimize_aria2c = True
+                full_file_url = list(unique_urls)[0]
+                downloader = track.downloader
+                log.info(
+                    f"Optimizing aria2c download: downloading complete file instead of {len(master.segments) - len(unwanted_segments)} individual byte range segments"
+                )
+            else:
+                # Mixed scenario - fall back to requests
+                downloader = requests_downloader
+                log.warning(
+                    "Falling back to the requests downloader as aria2(c) doesn't support the Range header"
+                )
+        else:
+            downloader = track.downloader
+            if downloader.__name__ == "aria2c" and segments_with_ranges:
+                downloader = requests_downloader
+                log.warning(
+                    "Falling back to the requests downloader as aria2(c) doesn't support the Range header"
+                )
 
         urls: list[dict[str, Any]] = []
         segment_durations: list[int] = []
+        map_data: Optional[tuple[m3u8.model.InitializationSection, bytes]] = None
 
-        range_offset = 0
-        for segment in master.segments:
-            if segment in unwanted_segments:
-                continue
+        if can_optimize_aria2c:
+            # For aria2c optimization, just download the complete file
+            urls = [{"url": full_file_url}]
+            # Still need segment durations for metadata
+            for segment in master.segments:
+                if segment not in unwanted_segments:
+                    segment_durations.append(int(segment.duration))
+        else:
+            # Handle segment map for non-optimized downloads
+            if master.segment_map and not map_data:
+                init = (
+                    master.segment_map[0]
+                    if isinstance(master.segment_map, list)
+                    else master.segment_map
+                )
+                try:
+                    range_offset = 0
+                    if init.byterange:
+                        init_byte_range = HLS.calculate_byte_range(
+                            init.byterange, range_offset
+                        )
+                        range_offset = int(init_byte_range.split("-")[1]) + 1
+                        init_range_header = {"Range": f"bytes={init_byte_range}"}
+                    else:
+                        init_range_header = {}
 
-            segment_durations.append(int(segment.duration))
+                    map_url = urljoin(init.base_uri, init.uri)
+                    res = session.get(map_url, headers=init_range_header, timeout=30)
+                    res.raise_for_status()
+                    map_data = (init, res.content)
+                    log.debug(f"Successfully downloaded global map file: {map_url}")
+                except Exception as e:
+                    # log.error(f"Failed to download global map file '{init.uri}': {e}")
+                    raise e
 
-            if segment.byterange:
-                byte_range = HLS.calculate_byte_range(segment.byterange, range_offset)
-                range_offset = byte_range.split("-")[0]
-            else:
-                byte_range = None
+            # Normal segmented download logic
+            range_offset = 0
+            for i, segment in enumerate(master.segments):
+                if segment in unwanted_segments:
+                    continue
 
-            urls.append(
-                {
-                    "url": urljoin(segment.base_uri, segment.uri),
-                    "headers": {"Range": f"bytes={byte_range}"} if byte_range else {},
-                }
-            )
+                segment_durations.append(int(segment.duration))
+
+                if segment.byterange:
+                    byte_range = HLS.calculate_byte_range(
+                        segment.byterange, range_offset
+                    )
+                    range_offset = byte_range.split("-")[0]
+                    urls.append(
+                        {
+                            "url": urljoin(segment.base_uri, segment.uri),
+                            "headers": {"Range": f"bytes={byte_range}"},
+                        }
+                    )
+                else:
+                    # Regular segment without byte range
+                    urls.append({"url": urljoin(segment.base_uri, segment.uri)})
 
         track.data["hls"]["segment_durations"] = segment_durations
 
@@ -332,16 +448,47 @@ class HLS:
             max_workers=max_workers,
         )
 
-
         for status_update in downloader(**downloader_args):
             file_downloaded = status_update.get("file_downloaded")
             if file_downloaded:
-                events.emit(events.Types.SEGMENT_DOWNLOADED, track=track, segment=file_downloaded)
+                events.emit(
+                    events.Types.SEGMENT_DOWNLOADED,
+                    track=track,
+                    segment=file_downloaded,
+                )
             else:
                 downloaded = status_update.get("downloaded")
                 if downloaded and downloaded.endswith("/s"):
                     status_update["downloaded"] = f"HLS {downloaded}"
                 progress(**status_update)
+
+        # Handle aria2c optimization: use the complete file directly
+        if can_optimize_aria2c:
+            # Find the complete file that was downloaded
+            complete_files = [
+                f
+                for f in segment_save_dir.iterdir()
+                if f.is_file()
+                and not f.name.startswith(".")
+                and not f.name.endswith(".aria2__temp")
+            ]
+            if complete_files:
+                complete_file_path = complete_files[0]  # Should only be one file
+                # Move the complete file directly to the final save path, skip all the segment processing
+                shutil.move(complete_file_path, save_path)
+                # Clean up the segment directory
+                if segment_save_dir.exists():
+                    segment_save_dir.rmdir()
+                save_dir.rmdir()
+                progress(downloaded="Downloaded")
+                track.path = save_path
+                events.emit(events.Types.TRACK_DOWNLOADED, track=track)
+                return
+            else:
+                log.warning(
+                    "Could not find downloaded complete file for aria2c optimization"
+                )
+                # Fall through to normal processing
 
         # see https://github.com/devine-dl/devine/issues/71
         for control_file in segment_save_dir.glob("*.aria2__temp"):
@@ -353,9 +500,11 @@ class HLS:
             name_len = len(str(total_segments))
             discon_i = 0
             range_offset = 0
-            map_data: Optional[tuple[m3u8.model.InitializationSection, bytes]] = None
             if session_drm:
-                encryption_data: Optional[tuple[Optional[m3u8.Key], DRM_T]] = (None, session_drm)
+                encryption_data: Optional[tuple[Optional[m3u8.Key], DRM_T]] = (
+                    None,
+                    session_drm,
+                )
             else:
                 encryption_data: Optional[tuple[Optional[m3u8.Key], DRM_T]] = None
 
@@ -366,7 +515,12 @@ class HLS:
 
                 is_last_segment = (real_i + 1) == len(master.segments)
 
-                def merge(to: Path, via: list[Path], delete: bool = False, include_map_data: bool = False):
+                def merge(
+                    to: Path,
+                    via: list[Path],
+                    delete: bool = False,
+                    include_map_data: bool = False,
+                ):
                     """
                     Merge all files to a given path, optionally including map data.
 
@@ -418,37 +572,61 @@ class HLS:
 
                     segment_range = f"{str(first_segment_i).zfill(name_len)}-{str(last_segment_i).zfill(name_len)}"
                     merged_path = (
-                        segment_save_dir / f"{segment_range}{get_extension(master.segments[last_segment_i].uri)}"
+                        segment_save_dir
+                        / f"{segment_range}{get_extension(master.segments[last_segment_i].uri)}"
                     )
-                    decrypted_path = segment_save_dir / f"{merged_path.stem}_decrypted{merged_path.suffix}"
+                    decrypted_path = (
+                        segment_save_dir
+                        / f"{merged_path.stem}_decrypted{merged_path.suffix}"
+                    )
 
                     files = [
                         file
                         for file in sorted(segment_save_dir.iterdir())
-                        if file.stem.isdigit() and first_segment_i <= int(file.stem) <= last_segment_i
+                        if file.stem.isdigit()
+                        and first_segment_i <= int(file.stem) <= last_segment_i
                     ]
                     if not files:
-                        raise ValueError(f"None of the segment files for {segment_range} exist...")
+                        raise ValueError(
+                            f"None of the segment files for {segment_range} exist..."
+                        )
                     elif len(files) != range_len:
-                        raise ValueError(f"Missing {range_len - len(files)} segment files for {segment_range}...")
+                        raise ValueError(
+                            f"Missing {range_len - len(files)} segment files for {segment_range}..."
+                        )
 
-                    if isinstance(drm, Widevine):
-                        # with widevine we can merge all segments and decrypt once
-                        _merge(to=merged_path, via=files, delete=True, include_map_data=True)
-                        drm.decrypt(merged_path)
-                        merged_path.rename(decrypted_path)
-                    else:
-                        # with other drm we must decrypt separately and then merge them
-                        # for aes this is because each segment likely has 16-byte padding
-                        for file in files:
-                            drm.decrypt(file)
-                        _merge(to=merged_path, via=files, delete=True, include_map_data=True)
+                    # if isinstance(drm, Widevine):
+                    #     # with widevine we can merge all segments and decrypt once
+                    #     _merge(to=merged_path, via=files, delete=True, include_map_data=True)
+                    #     drm.decrypt(merged_path)
+                    #     merged_path.rename(decrypted_path)
+                    # else:
+                    #     # with other drm we must decrypt separately and then merge them
+                    #     # for aes this is because each segment likely has 16-byte padding
+                    #     for file in files:
+                    #         drm.decrypt(file)
+                    #     _merge(to=merged_path, via=files, delete=True, include_map_data=True)
+                    _merge(
+                        to=merged_path, via=files, delete=True, include_map_data=True
+                    )
+                    drm.decrypt(merged_path)
+                    merged_path.rename(decrypted_path)
 
-                    events.emit(events.Types.TRACK_DECRYPTED, track=track, drm=drm, segment=decrypted_path)
+                    events.emit(
+                        events.Types.TRACK_DECRYPTED,
+                        track=track,
+                        drm=drm,
+                        segment=decrypted_path,
+                    )
 
                     return decrypted_path
 
-                def merge_discontinuity(include_this_segment: bool, include_map_data: bool = True, *, _merge=merge):
+                def merge_discontinuity(
+                    include_this_segment: bool,
+                    include_map_data: bool = True,
+                    *,
+                    _merge=merge,
+                ):
                     """
                     Merge all segments of the discontinuity.
 
@@ -468,19 +646,34 @@ class HLS:
                     files = [
                         file
                         for file in sorted(segment_save_dir.iterdir())
-                        if int(file.stem.replace("_decrypted", "").split("-")[-1]) <= last_segment_i
+                        if int(file.stem.replace("_decrypted", "").split("-")[-1])
+                        <= last_segment_i
                     ]
                     if files:
                         to_dir = segment_save_dir.parent
-                        to_path = to_dir / f"{str(discon_i).zfill(name_len)}{files[-1].suffix}"
-                        _merge(to=to_path, via=files, delete=True, include_map_data=include_map_data)
+                        to_path = (
+                            to_dir
+                            / f"{str(discon_i).zfill(name_len)}{files[-1].suffix}"
+                        )
+                        _merge(
+                            to=to_path,
+                            via=files,
+                            delete=True,
+                            include_map_data=include_map_data,
+                        )
 
                 if segment not in unwanted_segments:
                     if isinstance(track, Subtitle):
                         segment_file_ext = get_extension(segment.uri)
-                        segment_file_path = segment_save_dir / f"{str(i).zfill(name_len)}{segment_file_ext}"
+                        segment_file_path = (
+                            segment_save_dir
+                            / f"{str(i).zfill(name_len)}{segment_file_ext}"
+                        )
                         segment_data = try_ensure_utf8(segment_file_path.read_bytes())
-                        if track.codec not in (Subtitle.Codec.fVTT, Subtitle.Codec.fTTML):
+                        if track.codec not in (
+                            Subtitle.Codec.fVTT,
+                            Subtitle.Codec.fTTML,
+                        ):
                             segment_data = (
                                 segment_data.decode("utf8")
                                 .replace("&lrm;", html.unescape("&lrm;"))
@@ -493,7 +686,9 @@ class HLS:
                         if encryption_data:
                             decrypt(include_this_segment=False)
                         merge_discontinuity(
-                            include_this_segment=False, include_map_data=not encryption_data or not encryption_data[1]
+                            include_this_segment=False,
+                            include_map_data=not encryption_data
+                            or not encryption_data[1],
                         )
 
                         discon_i += 1
@@ -502,9 +697,13 @@ class HLS:
                         if encryption_data:
                             encryption_data = (encryption_data[0], encryption_data[1])
 
-                    if segment.init_section and (not map_data or segment.init_section != map_data[0]):
+                    if segment.init_section and (
+                        not map_data or segment.init_section != map_data[0]
+                    ):
                         if segment.init_section.byterange:
-                            init_byte_range = HLS.calculate_byte_range(segment.init_section.byterange, range_offset)
+                            init_byte_range = HLS.calculate_byte_range(
+                                segment.init_section.byterange, range_offset
+                            )
                             range_offset = init_byte_range.split("-")[0]
                             init_range_header = {"Range": f"bytes={init_byte_range}"}
                         else:
@@ -512,7 +711,9 @@ class HLS:
 
                         # Handle both session types for init section request
                         res = session.get(
-                            url=urljoin(segment.init_section.base_uri, segment.init_section.uri),
+                            url=urljoin(
+                                segment.init_section.base_uri, segment.init_section.uri
+                            ),
                             headers=init_range_header,
                         )
 
@@ -530,7 +731,12 @@ class HLS:
                 segment_keys = getattr(segment, "keys", None)
                 if segment_keys:
                     key = HLS.get_supported_key(segment_keys)
-                    if encryption_data and encryption_data[0] != key and i != 0 and segment not in unwanted_segments:
+                    if (
+                        encryption_data
+                        and encryption_data[0] != key
+                        and i != 0
+                        and segment not in unwanted_segments
+                    ):
                         decrypt(include_this_segment=False)
 
                     if key is None:
@@ -560,7 +766,8 @@ class HLS:
                     if encryption_data:
                         decrypt(include_this_segment=True)
                     merge_discontinuity(
-                        include_this_segment=True, include_map_data=not encryption_data or not encryption_data[1]
+                        include_this_segment=True,
+                        include_map_data=not encryption_data or not encryption_data[1],
                     )
 
                 progress(advance=1)
@@ -602,10 +809,14 @@ class HLS:
         Returns the file size of the merged file.
         """
         if not binaries.FFMPEG:
-            raise EnvironmentError("FFmpeg executable was not found but is required to merge HLS segments.")
+            raise EnvironmentError(
+                "FFmpeg executable was not found but is required to merge HLS segments."
+            )
 
         demuxer_file = segments[0].parent / "ffmpeg_concat_demuxer.txt"
-        demuxer_file.write_text("\n".join([f"file '{segment}'" for segment in segments]))
+        demuxer_file.write_text(
+            "\n".join([f"file '{segment}'" for segment in segments])
+        )
 
         subprocess.check_call(
             [
@@ -634,7 +845,9 @@ class HLS:
         return save_path.stat().st_size
 
     @staticmethod
-    def parse_session_data_keys(manifest: M3U8, session: Optional[Union[Session]] = None) -> list[m3u8.model.Key]:
+    def parse_session_data_keys(
+        manifest: M3U8, session: Optional[Union[Session]] = None
+    ) -> list[m3u8.model.Key]:
         """Parse `com.apple.hls.keys` session data and return Key objects."""
         keys: list[m3u8.model.Key] = []
 
@@ -670,26 +883,29 @@ class HLS:
                     base_uri=manifest.base_uri or "",
                     uri=item.get("uri"),
                     keyformat=item.get("keyformat"),
-                    keyformatversions=",".join(item.get("keyformatversion") or item.get("keyformatversions") or []),
+                    keyformatversions=",".join(
+                        item.get("keyformatversion")
+                        or item.get("keyformatversions")
+                        or []
+                    ),
                 )
-                if (
-                    key.method in {"AES-128", "ISO-23001-7"}
-                    or (
-                        key.keyformat
-                        and key.keyformat.lower()
-                        in {
-                            WidevineCdm.urn,
-                            PlayReadyCdm,
-                            "com.microsoft.playready",
-                        }
-                    )
+                if key.method in {"AES-128", "ISO-23001-7"} or (
+                    key.keyformat
+                    and key.keyformat.lower()
+                    in {
+                        WidevineCdm.urn,
+                        PlayReadyCdm,
+                        "com.microsoft.playready",
+                    }
                 ):
                     keys.append(key)
 
         return keys
 
     @staticmethod
-    def get_supported_key(keys: list[Union[m3u8.model.SessionKey, m3u8.model.Key]]) -> Optional[m3u8.Key]:
+    def get_supported_key(
+        keys: list[Union[m3u8.model.SessionKey, m3u8.model.Key]],
+    ) -> Optional[m3u8.Key]:
         """
         Get a support Key System from a list of Key systems.
 
@@ -722,13 +938,18 @@ class HLS:
             ):
                 return key
             else:
-                unsupported_systems.append(key.method + (f" ({key.keyformat})" if key.keyformat else ""))
+                unsupported_systems.append(
+                    key.method + (f" ({key.keyformat})" if key.keyformat else "")
+                )
         else:
-            raise NotImplementedError(f"None of the key systems are supported: {', '.join(unsupported_systems)}")
+            raise NotImplementedError(
+                f"None of the key systems are supported: {', '.join(unsupported_systems)}"
+            )
 
     @staticmethod
     def get_drm(
-        key: Union[m3u8.model.SessionKey, m3u8.model.Key], session: Optional[Union[Session]] = None
+        key: Union[m3u8.model.SessionKey, m3u8.model.Key],
+        session: Optional[Union[Session]] = None,
     ) -> DRM_T:
         """
         Convert HLS EXT-X-KEY data to an initialized DRM object.
@@ -749,7 +970,12 @@ class HLS:
         if key.method == "AES-128":
             drm = ClearKey.from_m3u_key(key, session)
         elif key.method == "ISO-23001-7":
-            drm = Widevine(pssh=WV_PSSH.new(key_ids=[key.uri.split(",")[-1]], system_id=WV_PSSH.SystemId.Widevine))
+            drm = Widevine(
+                pssh=WV_PSSH.new(
+                    key_ids=[key.uri.split(",")[-1]],
+                    system_id=WV_PSSH.SystemId.Widevine,
+                )
+            )
         elif key.keyformat and key.keyformat.lower() == WidevineCdm.urn:
             drm = Widevine(
                 pssh=WV_PSSH(key.uri.split(",")[-1]),
@@ -771,7 +997,7 @@ class HLS:
     @staticmethod
     def get_all_drm(
         keys: list[Union[m3u8.model.SessionKey, m3u8.model.Key]],
-        proxy: Optional[str] = None
+        proxy: Optional[str] = None,
     ) -> list[DRM_T]:
         """
         Convert HLS EXT-X-KEY data to initialized DRM objects.
@@ -796,7 +1022,9 @@ class HLS:
                 unsupported_keys.append(key)
 
         if not drm_objects and unsupported_keys:
-            raise NotImplementedError(f"None of the key systems are supported: {unsupported_keys}")
+            raise NotImplementedError(
+                f"None of the key systems are supported: {unsupported_keys}"
+            )
 
         return drm_objects
 

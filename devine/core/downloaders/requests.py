@@ -22,12 +22,13 @@ PROGRESS_WINDOW = 5
 DOWNLOAD_SIZES = []
 LAST_SPEED_REFRESH = time.time()
 
+
 def download(
     url: str,
     save_path: Path,
     session: Optional[Session] = None,
     segmented: bool = False,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Generator[dict[str, Any], None, None]:
     """
     Download a file using Python Requests.
@@ -71,10 +72,7 @@ def download(
         control_file.unlink()
     elif save_path.exists():
         # if it exists, and no control file, then it should be safe
-        yield dict(
-            file_downloaded=save_path,
-            written=save_path.stat().st_size
-        )
+        yield dict(file_downloaded=save_path, written=save_path.stat().st_size)
         # TODO: This should return, potential recovery bug
 
     # TODO: Design a control file format so we know how much of the file is missing
@@ -116,27 +114,42 @@ def download(
                             now = time.time()
                             time_since = now - last_speed_refresh
                             download_sizes.append(download_size)
-                            if time_since > PROGRESS_WINDOW or download_size < CHUNK_SIZE:
+                            if (
+                                time_since > PROGRESS_WINDOW
+                                or download_size < CHUNK_SIZE
+                            ):
                                 data_size = sum(download_sizes)
-                                download_speed = math.ceil(data_size / (time_since or 1))
-                                yield dict(downloaded=f"{filesize.decimal(download_speed)}/s")
+                                download_speed = math.ceil(
+                                    data_size / (time_since or 1)
+                                )
+                                yield dict(
+                                    downloaded=f"{filesize.decimal(download_speed)}/s"
+                                )
                                 last_speed_refresh = now
                                 download_sizes.clear()
+                        else:
+                            # For segmented downloads, we still need to update speed calculations
+                            # but we don't advance the progress bar for each chunk
+                            now = time.time()
+                            time_since = now - LAST_SPEED_REFRESH
+                            if written:  # no size == skipped dl
+                                DOWNLOAD_SIZES.append(download_size)
+                            if DOWNLOAD_SIZES and time_since > PROGRESS_WINDOW:
+                                data_size = sum(DOWNLOAD_SIZES)
+                                download_speed = math.ceil(
+                                    data_size / (time_since or 1)
+                                )
+                                yield dict(
+                                    downloaded=f"{filesize.decimal(download_speed)}/s"
+                                )
+                                LAST_SPEED_REFRESH = now
+                                DOWNLOAD_SIZES.clear()
 
                 yield dict(file_downloaded=save_path, written=written)
 
                 if segmented:
                     yield dict(advance=1)
-                    now = time.time()
-                    time_since = now - LAST_SPEED_REFRESH
-                    if written:  # no size == skipped dl
-                        DOWNLOAD_SIZES.append(written)
-                    if DOWNLOAD_SIZES and time_since > PROGRESS_WINDOW:
-                        data_size = sum(DOWNLOAD_SIZES)
-                        download_speed = math.ceil(data_size / (time_since or 1))
-                        yield dict(downloaded=f"{filesize.decimal(download_speed)}/s")
-                        LAST_SPEED_REFRESH = now
-                        DOWNLOAD_SIZES.clear()
+                    # Remove the redundant speed calculation here since it's now handled above
                 break
             except Exception as e:
                 save_path.unlink(missing_ok=True)
@@ -155,7 +168,7 @@ def requests(
     headers: Optional[MutableMapping[str, Union[str, bytes]]] = None,
     cookies: Optional[Union[MutableMapping[str, str], CookieJar]] = None,
     proxy: Optional[str] = None,
-    max_workers: Optional[int] = None
+    max_workers: Optional[int] = None,
 ) -> Generator[dict[str, Any], None, None]:
     """
     Download a file using Python Requests.
@@ -189,7 +202,9 @@ def requests(
     if not urls:
         raise ValueError("urls must be provided and not empty")
     elif not isinstance(urls, (str, dict, list)):
-        raise TypeError(f"Expected urls to be {str} or {dict} or a list of one of them, not {type(urls)}")
+        raise TypeError(
+            f"Expected urls to be {str} or {dict} or a list of one of them, not {type(urls)}"
+        )
 
     if not output_dir:
         raise ValueError("output_dir must be provided")
@@ -205,7 +220,9 @@ def requests(
         raise TypeError(f"Expected headers to be {MutableMapping}, not {type(headers)}")
 
     if not isinstance(cookies, (MutableMapping, CookieJar, type(None))):
-        raise TypeError(f"Expected cookies to be {MutableMapping} or {CookieJar}, not {type(cookies)}")
+        raise TypeError(
+            f"Expected cookies to be {MutableMapping} or {CookieJar}, not {type(cookies)}"
+        )
 
     if not isinstance(proxy, (str, type(None))):
         raise TypeError(f"Expected proxy to be {str}, not {type(proxy)}")
@@ -220,34 +237,31 @@ def requests(
         max_workers = min(32, (os.cpu_count() or 1) + 4)
 
     urls = [
-        dict(
-            save_path=save_path,
-            **url
-        ) if isinstance(url, dict) else dict(
-            url=url,
-            save_path=save_path
+        (
+            dict(save_path=save_path, **url)
+            if isinstance(url, dict)
+            else dict(url=url, save_path=save_path)
         )
         for i, url in enumerate(urls)
-        for save_path in [output_dir / filename.format(
-            i=i,
-            ext=get_extension(url["url"] if isinstance(url, dict) else url)
-        )]
+        for save_path in [
+            output_dir
+            / filename.format(
+                i=i, ext=get_extension(url["url"] if isinstance(url, dict) else url)
+            )
+        ]
     ]
 
     session = Session()
-    session.mount("https://", HTTPAdapter(
-        pool_connections=max_workers,
-        pool_maxsize=max_workers,
-        pool_block=True
-    ))
+    session.mount(
+        "https://",
+        HTTPAdapter(
+            pool_connections=max_workers, pool_maxsize=max_workers, pool_block=True
+        ),
+    )
     session.mount("http://", session.adapters["https://"])
 
     if headers:
-        headers = {
-            k: v
-            for k, v in headers.items()
-            if k.lower() != "accept-encoding"
-        }
+        headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
         session.headers.update(headers)
     if cookies:
         session.cookies.update(cookies)
@@ -259,12 +273,7 @@ def requests(
     try:
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             for future in as_completed(
-                pool.submit(
-                    download,
-                    session=session,
-                    segmented=False,
-                    **url
-                )
+                pool.submit(download, session=session, segmented=True, **url)
                 for url in urls
             ):
                 try:
