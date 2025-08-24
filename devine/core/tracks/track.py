@@ -47,6 +47,8 @@ class Track:
         downloader: Optional[Callable] = None,
         data: Optional[Union[dict, defaultdict]] = None,
         id_: Optional[str] = None,
+        psshWV = None,
+        psshPR = None
     ) -> None:
         if not isinstance(url, (str, list)):
             raise TypeError(f"Expected url to be a {str}, or list of {str}, not {type(url)}")
@@ -98,6 +100,8 @@ class Track:
         self.downloader = downloader
         self._data: defaultdict[Any, Any] = defaultdict(dict)
         self.data = data or {}
+        self.psshWV = psshWV
+        self.psshPR = psshPR
 
         if self.name is None:
             lang = Language.get(self.language)
