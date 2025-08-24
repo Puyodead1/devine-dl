@@ -209,8 +209,8 @@ class Video(Track):
         """
         super().__init__(*args, **kwargs)
 
-        if not isinstance(codec, (Video.Codec, type(None))):
-            raise TypeError(f"Expected codec to be a {Video.Codec}, not {codec!r}")
+        # if not isinstance(codec, (Video.Codec, type(None))):
+        #     raise TypeError(f"Expected codec to be a {Video.Codec}, not {codec!r}")
         if not isinstance(range_, (Video.Range, type(None))):
             raise TypeError(f"Expected range_ to be a {Video.Range}, not {range_!r}")
         if not isinstance(bitrate, (str, int, float, type(None))):

@@ -145,8 +145,8 @@ class Subtitle(Track):
         """
         super().__init__(*args, **kwargs)
 
-        if not isinstance(codec, (Subtitle.Codec, type(None))):
-            raise TypeError(f"Expected codec to be a {Subtitle.Codec}, not {codec!r}")
+        # if not isinstance(codec, (Subtitle.Codec, type(None))):
+        #     raise TypeError(f"Expected codec to be a {Subtitle.Codec}, not {codec!r}")
         if not isinstance(cc, (bool, int)) or (isinstance(cc, int) and cc not in (0, 1)):
             raise TypeError(f"Expected cc to be a {bool} or bool-like {int}, not {cc!r}")
         if not isinstance(sdh, (bool, int)) or (isinstance(sdh, int) and sdh not in (0, 1)):

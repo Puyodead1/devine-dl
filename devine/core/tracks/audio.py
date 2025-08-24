@@ -95,8 +95,8 @@ class Audio(Track):
         """
         super().__init__(*args, **kwargs)
 
-        if not isinstance(codec, (Audio.Codec, type(None))):
-            raise TypeError(f"Expected codec to be a {Audio.Codec}, not {codec!r}")
+        # if not isinstance(codec, (Audio.Codec, type(None))):
+        #     raise TypeError(f"Expected codec to be a {Audio.Codec}, not {codec!r}")
         if not isinstance(bitrate, (str, int, float, type(None))):
             raise TypeError(f"Expected bitrate to be a {str}, {int}, or {float}, not {bitrate!r}")
         if not isinstance(channels, (str, int, float, type(None))):
