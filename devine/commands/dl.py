@@ -28,6 +28,8 @@ from pymediainfo import MediaInfo
 from pyplayready.cdm import Cdm as PlayReadyCdm
 from pyplayready.device import Device as PlayReadyDevice
 from pywidevine.cdm import Cdm as WidevineCdm
+from pywidevine.remotecdm import RemoteCdm as WidevineRemoteCdm
+from pyplayready.remote.remotecdm import RemoteCdm as PlayReadyRemoteCdm
 from pywidevine.device import Device
 from rich.console import Group
 from rich.live import Live
@@ -184,9 +186,14 @@ class dl:
                 if hasattr(self.cdm, "device_type") and self.cdm.device_type.name in ["ANDROID", "CHROME"]:
                     self.log.info(f"Loaded Widevine CDM: {self.cdm.system_id} (L{self.cdm.security_level})")
                 else:
-                    self.log.info(
-                        f"Loaded PlayReady CDM: {self.cdm.certificate_chain.get_name()} (L{self.cdm.security_level})"
-                    )
+                    if isinstance(self.cdm, PlayReadyRemoteCdm):
+                        self.log.info(
+                            f"Loaded PlayReady CDM: {self.cdm.device_name} (L{self.cdm.security_level})"
+                        )
+                    else:
+                        self.log.info(
+                            f"Loaded PlayReady CDM: {self.cdm.certificate_chain.get_name()} (L{self.cdm.security_level})"
+                        )
 
         with console.status("Loading Key Vaults...", spinner="dots"):
             self.vaults = Vaults(self.service)
@@ -1069,8 +1076,14 @@ class dl:
                 return None
 
         cdm_api = next(iter(x for x in config.remote_cdm if x["name"] == cdm_name), None)
-        if cdm_api:
+        if cdm_api and "type" in cdm_api:
+            type_ = cdm_api["type"]
             del cdm_api["name"]
+            del cdm_api["type"]
+            if type_ == "widevine":
+                return WidevineRemoteCdm(**cdm_api)
+            elif type_ == "playready":
+                return PlayReadyRemoteCdm(**cdm_api)
         prd_path = config.directories.prds / f"{cdm_name}.prd"
         if not prd_path.is_file():
             prd_path = config.directories.wvds / f"{cdm_name}.prd"
