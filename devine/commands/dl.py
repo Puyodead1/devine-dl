@@ -27,10 +27,10 @@ from construct import ConstError
 from pymediainfo import MediaInfo
 from pyplayready.cdm import Cdm as PlayReadyCdm
 from pyplayready.device import Device as PlayReadyDevice
-from pywidevine.cdm import Cdm as WidevineCdm
-from pywidevine.remotecdm import RemoteCdm as WidevineRemoteCdm
 from pyplayready.remote.remotecdm import RemoteCdm as PlayReadyRemoteCdm
+from pywidevine.cdm import Cdm as WidevineCdm
 from pywidevine.device import Device
+from pywidevine.remotecdm import RemoteCdm as WidevineRemoteCdm
 from rich.console import Group
 from rich.live import Live
 from rich.padding import Padding
@@ -400,7 +400,7 @@ class dl:
                         for color_range in range_:
                             if not any(x.range == color_range for x in title.tracks.videos):
                                 self.log.error(f"There's no {color_range.name} Video Tracks...")
-                                sys.exit(1)
+                                # sys.exit(1)
 
                     if vbitrate:
                         title.tracks.select_video(lambda x: x.bitrate and x.bitrate // 1000 == vbitrate)
@@ -441,7 +441,7 @@ class dl:
                             range_ or [None]
                         )
                         for track in [next(
-                            t
+                            (t
                             for t in title.tracks.videos
                             if (not resolution and not color_range) or
                             (
@@ -450,8 +450,10 @@ class dl:
                                    (int(t.width * (9 / 16)) == resolution)
                                 ))
                                 and (not color_range or t.range == color_range)
-                            )
+                            )),
+                            None
                         )]
+                        if track is not None
                     ]
 
                     # filter subtitle tracks

@@ -9,12 +9,12 @@ from devine.core.tracks.track import Track
 
 class Audio(Track):
     class Codec(str, Enum):
-        AAC = "AAC"    # https://wikipedia.org/wiki/Advanced_Audio_Coding
-        AC3 = "DD"     # https://wikipedia.org/wiki/Dolby_Digital
-        EC3 = "DD+"    # https://wikipedia.org/wiki/Dolby_Digital_Plus
+        AAC = "AAC"  # https://wikipedia.org/wiki/Advanced_Audio_Coding
+        AC3 = "DD"  # https://wikipedia.org/wiki/Dolby_Digital
+        EC3 = "DD+"  # https://wikipedia.org/wiki/Dolby_Digital_Plus
         OPUS = "OPUS"  # https://wikipedia.org/wiki/Opus_(audio_format)
-        OGG = "VORB"   # https://wikipedia.org/wiki/Vorbis
-        DTS = "DTS"    # https://en.wikipedia.org/wiki/DTS_(company)#DTS_Digital_Surround
+        OGG = "VORB"  # https://wikipedia.org/wiki/Vorbis
+        DTS = "DTS"  # https://en.wikipedia.org/wiki/DTS_(company)#DTS_Digital_Surround
         ALAC = "ALAC"  # https://en.wikipedia.org/wiki/Apple_Lossless_Audio_Codec
         FLAC = "FLAC"  # https://en.wikipedia.org/wiki/FLAC
 
@@ -54,7 +54,7 @@ class Audio(Track):
         @staticmethod
         def from_netflix_profile(profile: str) -> Audio.Codec:
             profile = profile.lower().strip()
-            if profile.startswith("heaac"):
+            if profile.startswith("heaac") or profile.startswith("xheaac-dash"):
                 return Audio.Codec.AAC
             if profile.startswith("dd-"):
                 return Audio.Codec.AC3
@@ -72,7 +72,7 @@ class Audio(Track):
         channels: Optional[Union[str, int, float]] = None,
         joc: Optional[int] = None,
         descriptive: Union[bool, int] = False,
-        **kwargs: Any
+        **kwargs: Any,
     ):
         """
         Create a new Audio track object.
@@ -103,10 +103,7 @@ class Audio(Track):
             raise TypeError(f"Expected channels to be a {str}, {int}, or {float}, not {channels!r}")
         if not isinstance(joc, (int, type(None))):
             raise TypeError(f"Expected joc to be a {int}, not {joc!r}")
-        if (
-            not isinstance(descriptive, (bool, int)) or
-            (isinstance(descriptive, int) and descriptive not in (0, 1))
-        ):
+        if not isinstance(descriptive, (bool, int)) or (isinstance(descriptive, int) and descriptive not in (0, 1)):
             raise TypeError(f"Expected descriptive to be a {bool} or bool-like {int}, not {descriptive!r}")
 
         self.codec = codec
@@ -125,18 +122,28 @@ class Audio(Track):
         self.descriptive = bool(descriptive)
 
     def __str__(self) -> str:
-        return " | ".join(filter(bool, [
-            "AUD",
-            f"[{self.codec.value}]" if self.codec else None,
-            str(self.language),
-            ", ".join(filter(bool, [
-                str(self.channels) if self.channels else None,
-                f"JOC {self.joc}" if self.joc else None,
-            ])),
-            f"{self.bitrate // 1000} kb/s" if self.bitrate else None,
-            self.get_track_name(),
-            self.edition
-        ]))
+        return " | ".join(
+            filter(
+                bool,
+                [
+                    "AUD",
+                    f"[{self.codec.value}]" if self.codec else None,
+                    str(self.language),
+                    ", ".join(
+                        filter(
+                            bool,
+                            [
+                                str(self.channels) if self.channels else None,
+                                f"JOC {self.joc}" if self.joc else None,
+                            ],
+                        )
+                    ),
+                    f"{self.bitrate // 1000} kb/s" if self.bitrate else None,
+                    self.get_track_name(),
+                    self.edition,
+                ],
+            )
+        )
 
     @staticmethod
     def parse_channels(channels: Union[str, int, float]) -> float:

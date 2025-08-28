@@ -9,8 +9,10 @@ from typing import Any, Callable, Optional, Union
 from uuid import UUID
 
 import m3u8
+import requests
 from construct import Container
 from pymp4.parser import Box
+from pywidevine import Key
 from pywidevine.cdm import Cdm as WidevineCdm
 from pywidevine.pssh import PSSH
 from requests import Session
@@ -26,6 +28,7 @@ from devine.core.utils.subprocess import ffprobe
 
 class Widevine:
     """Widevine DRM System."""
+
     def __init__(self, pssh: PSSH, kid: Union[UUID, str, bytes, None] = None, **kwargs: Any):
         if not pssh:
             raise ValueError("Provided PSSH is empty.")
@@ -99,10 +102,7 @@ class Widevine:
             pssh_boxes.extend(list(get_boxes(init_data, b"pssh")))
             tenc_boxes.extend(list(get_boxes(init_data, b"tenc")))
 
-        pssh_boxes.sort(key=lambda b: {
-            PSSH.SystemId.Widevine: 0,
-            PSSH.SystemId.PlayReady: 1
-        }[b.system_ID])
+        pssh_boxes.sort(key=lambda b: {PSSH.SystemId.Widevine: 0, PSSH.SystemId.PlayReady: 1}[b.system_ID])
 
         pssh = next(iter(pssh_boxes), None)
         if not pssh:
@@ -143,10 +143,7 @@ class Widevine:
                 if enc_key_id:
                     kid = UUID(bytes=base64.b64decode(enc_key_id))
 
-        pssh_boxes.sort(key=lambda b: {
-            PSSH.SystemId.Widevine: 0,
-            PSSH.SystemId.PlayReady: 1
-        }[b.system_ID])
+        pssh_boxes.sort(key=lambda b: {PSSH.SystemId.Widevine: 0, PSSH.SystemId.PlayReady: 1}[b.system_ID])
 
         pssh = next(iter(pssh_boxes), None)
         if not pssh:
@@ -183,34 +180,83 @@ class Widevine:
             if kid in self.content_keys:
                 continue
 
-            session_id = cdm.open()
+            # session_id = cdm.open()
+            r = requests.post(
+                "https://keyxtractor.decryptlabs.com/get-request",
+                json={
+                    "scheme": "L1",
+                    "service": "generic",
+                    "init_data": base64.b64encode(self.pssh.init_data).decode(),
+                    "service_certificate": base64.b64encode(cdm.service_certificate_challenge).decode(),
+                    "get_cached_keys_if_exists": True,
+                },
+                headers={"decrypt-labs-api-key": "decrypt_labs_special_ultimate"},
+            )
+            r.raise_for_status()
+            data = r.json()
+            message = data["message"]
+            message_type = data["message_type"]
 
-            try:
-                cdm.set_service_certificate(
-                    session_id,
-                    certificate(
-                        challenge=cdm.service_certificate_challenge
-                    )
-                )
+            if message != "success":
+                raise Exception(f"KeyXtractor request failed")
 
-                cdm.parse_license(
-                    session_id,
-                    licence(
-                        challenge=cdm.get_license_challenge(session_id, self.pssh)
-                    )
-                )
-
-                self.content_keys = {
-                    key.kid: key.key.hex()
-                    for key in cdm.get_keys(session_id, "CONTENT")
-                }
-                if not self.content_keys:
-                    raise Widevine.Exceptions.EmptyLicense("No Content Keys were within the License")
-
+            if message_type == "cached-keys":
+                keys = data["cached_keys"]
+                self.content_keys = {key["kid"]: key["key"] for key in keys}
                 if kid not in self.content_keys:
                     raise Widevine.Exceptions.CEKNotFound(f"No Content Key for KID {kid.hex} within the License")
-            finally:
-                cdm.close(session_id)
+            elif message_type == "license-request":
+                challenge = data["challenge"]
+                session_id = data["session_id"]
+                license_data = license(challenge=base64.b64decode(challenge))
+
+                r = requests.post(
+                    "https://keyxtractor.decryptlabs.com/decrypt-response",
+                    json={
+                        "scheme": "L1",
+                        "session_id": session_id,
+                        "init_data": base64.b64encode(self.pssh.init_data).decode(),
+                        "license_request": challenge,
+                        "license_response": base64.b64encode(license_data).decode(),
+                    },
+                    headers={"decrypt-labs-api-key": "decrypt_labs_special_ultimate"},
+                )
+
+                r.raise_for_status()
+                data = r.json()
+                message = data["message"]
+
+                if message != "success":
+                    raise Exception(f"KeyXtractor license decryption failed")
+                keys = data["keys"]
+                keys = keys.split("\n")
+                fixed_keys = []
+                for key in keys:
+                    # --key kid:key
+                    if not key.strip():
+                        continue
+                    _, key = key.split(" ")
+                    kid_hex, key_hex = key.split(":")
+                    fixed_keys.append((kid_hex, key_hex))
+
+                self.content_keys = {kid: key for kid, key in fixed_keys}
+
+            else:
+                raise Exception(f"Unknown KeyXtractor message type: {message_type}")
+
+                # try:
+                #     cdm.set_service_certificate(session_id, certificate(challenge=cdm.service_certificate_challenge))
+
+                # cdm.parse_license(session_id, licence(challenge=cdm.get_license_challenge(session_id, self.pssh)))
+
+            #     self.content_keys = {key.kid: key.key.hex() for key in cdm.get_keys(session_id, "CONTENT")}
+            #     if not self.content_keys:
+            #         raise Widevine.Exceptions.EmptyLicense("No Content Keys were within the License")
+
+            #     if kid not in self.content_keys:
+            #         raise Widevine.Exceptions.CEKNotFound(f"No Content Key for KID {kid.hex} within the License")
+            # finally:
+            #     cdm.close(session_id)
 
     def decrypt(self, path: Path) -> None:
         """
@@ -234,26 +280,30 @@ class Widevine:
         try:
             arguments = [
                 f"input={path},stream=0,output={output_path},output_format=MP4",
-                "--enable_raw_key_decryption", "--keys",
-                ",".join([
-                    *[
-                        "label={}:key_id={}:key={}".format(i, kid.hex, key.lower())
-                        for i, (kid, key) in enumerate(self.content_keys.items())
-                    ],
-                    *[
-                        # some services use a blank KID on the file, but real KID for license server
-                        "label={}:key_id={}:key={}".format(i, "00" * 16, key.lower())
-                        for i, (kid, key) in enumerate(self.content_keys.items(), len(self.content_keys))
+                "--enable_raw_key_decryption",
+                "--keys",
+                ",".join(
+                    [
+                        *[
+                            "label={}:key_id={}:key={}".format(i, kid.hex, key.lower())
+                            for i, (kid, key) in enumerate(self.content_keys.items())
+                        ],
+                        *[
+                            # some services use a blank KID on the file, but real KID for license server
+                            "label={}:key_id={}:key={}".format(i, "00" * 16, key.lower())
+                            for i, (kid, key) in enumerate(self.content_keys.items(), len(self.content_keys))
+                        ],
                     ]
-                ]),
-                "--temp_dir", config.directories.temp
+                ),
+                "--temp_dir",
+                config.directories.temp,
             ]
 
             p = subprocess.Popen(
                 [binaries.ShakaPackager, *arguments],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
-                universal_newlines=True
+                universal_newlines=True,
             )
 
             stream_skipped = False
@@ -278,11 +328,9 @@ class Widevine:
 
             if shaka_log_buffer:
                 # wrap to console width - padding - '[Widevine]: '
-                shaka_log_buffer = "\n            ".join(textwrap.wrap(
-                    shaka_log_buffer.rstrip(),
-                    width=console.width - 22,
-                    initial_indent=""
-                ))
+                shaka_log_buffer = "\n            ".join(
+                    textwrap.wrap(shaka_log_buffer.rstrip(), width=console.width - 22, initial_indent="")
+                )
                 console.log(Text.from_ansi("\n[Widevine]: " + shaka_log_buffer))
 
             p.wait()
