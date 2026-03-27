@@ -32,6 +32,7 @@ class Config:
     class _Filenames:
         # default filenames, do not modify here, set via config
         log = "devine_{name}_{time}.log"  # Directories.logs
+        debug_log = "unshackle_debug_{service}_{time}.jsonl"
         config = "config.yaml"  # Directories.services / tag
         root_config = "devine.yaml"  # Directories.user_configs
         chapters = "Chapters_{title}_{random}.txt"  # Directories.temp
@@ -68,6 +69,9 @@ class Config:
         self.services: dict = kwargs.get("services") or {}
         self.set_terminal_bg: bool = kwargs.get("set_terminal_bg", True)
         self.tag: str = kwargs.get("tag") or ""
+
+        self.debug: bool = kwargs.get("debug", False)
+        self.debug_keys: bool = kwargs.get("debug_keys", False)
 
     @classmethod
     def from_yaml(cls, path: Path) -> Config:

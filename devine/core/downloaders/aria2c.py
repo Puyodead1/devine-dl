@@ -153,6 +153,7 @@ def download(
         "--max-file-not-found=5",  # counted towards --max-tries
         "--max-tries=5",
         "--retry-wait=2",
+        "--disable-ipv6",
         # [Advanced Options]
         "--allow-overwrite=true",
         "--auto-file-renaming=false",

@@ -27,10 +27,10 @@ from construct import ConstError
 from pymediainfo import MediaInfo
 from pyplayready.cdm import Cdm as PlayReadyCdm
 from pyplayready.device import Device as PlayReadyDevice
-from pywidevine.cdm import Cdm as WidevineCdm
-from pywidevine.remotecdm import RemoteCdm as WidevineRemoteCdm
 from pyplayready.remote.remotecdm import RemoteCdm as PlayReadyRemoteCdm
+from pywidevine.cdm import Cdm as WidevineCdm
 from pywidevine.device import Device
+from pywidevine.remotecdm import RemoteCdm as WidevineRemoteCdm
 from rich.console import Group
 from rich.live import Live
 from rich.padding import Padding
@@ -55,7 +55,8 @@ from devine.core.titles import Movie, Song, Title_T
 from devine.core.titles.episode import Episode
 from devine.core.tracks import Audio, Subtitle, Tracks, Video
 from devine.core.tracks.attachment import Attachment
-from devine.core.utilities import get_system_fonts, is_close_match, time_elapsed_since
+from devine.core.utilities import (get_debug_logger, get_system_fonts, init_debug_logger, is_close_match,
+                                   time_elapsed_since)
 from devine.core.utils.click_types import LANGUAGE_RANGE, QUALITY_LIST, SEASON_RANGE, ContextData, MultipleChoice
 from devine.core.utils.collections import merge_dict
 from devine.core.utils.subprocess import ffprobe
@@ -162,6 +163,37 @@ class dl:
 
         self.service = Services.get_tag(ctx.invoked_subcommand)
         self.profile = profile
+
+         # Initialize debug logger with service name if debug logging is enabled
+        if config.debug or logging.root.level == logging.DEBUG:
+            from collections import defaultdict
+            from datetime import datetime
+
+            debug_log_path = config.directories.logs / config.filenames.debug_log.format_map(
+                defaultdict(str, service=self.service, time=datetime.now().strftime("%Y%m%d-%H%M%S"))
+            )
+            init_debug_logger(log_path=debug_log_path, enabled=True, log_keys=config.debug_keys)
+            self.debug_logger = get_debug_logger()
+
+            if self.debug_logger:
+                self.debug_logger.log(
+                    level="INFO",
+                    operation="download_init",
+                    message=f"Download command initialized for service {self.service}",
+                    service=self.service,
+                    context={
+                        "profile": profile,
+                        "proxy": proxy,
+                        "tag": tag,
+                        "cli_params": {
+                            k: v
+                            for k, v in ctx.params.items()
+                            if k not in ["profile", "proxy", "tag", "tmdb_id", "tmdb_name", "tmdb_year"]
+                        },
+                    },
+                )
+        else:
+            self.debug_logger = None
 
         if self.profile:
             self.log.info(f"Using profile: '{self.profile}'")
